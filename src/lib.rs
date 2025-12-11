@@ -138,7 +138,7 @@ where
     /// For example, in an 2000 MiB pool that only 0.5 MiB are available,
     /// to insert a new 0.7 MiB file, we need to remove files of at least 0.3 MiB.
     ///
-    /// Thus, pass 314573 (ceil(0.3*1024*1024)) to exceed.
+    /// Thus, pass 314573 (ceil(0.3 * 1024 * 1024)) to exceed.
     ///
     /// exceed = newfile_size - avaliable_capacity
     ///
