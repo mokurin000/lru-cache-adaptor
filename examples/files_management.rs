@@ -8,7 +8,7 @@ use lru_cache_adaptor::{FileInfo, LRUError, LRUResult, LruCache};
 fn main() -> LRUResult<()> {
     let mut cache = LruCache::new(disklru::Store::open_temporary(1024)?);
 
-    let file_sizes = [512, 512, 768, 512, 1536];
+    let file_sizes = [512, 512, 768, 512, 32, 1536, 256, 256, 32];
     let total_capacity = 2048_isize;
     let mut used = 0_isize;
 
@@ -26,13 +26,14 @@ fn main() -> LRUResult<()> {
         }
         used += size;
 
-        println!("after inserting {path}, used {used} of {total_capacity} bytes");
+        println!("after inserting {path} ({size} B), used {used} of {total_capacity} bytes");
     }
 
     let size = total_capacity + 1;
     let exceeded = size - (total_capacity - used);
     println!("size: {size} B, exceed: {exceeded} B");
 
+    // Do NOT try to insert too large file.
     assert!(matches!(
         place_file(
             &mut cache,
@@ -42,6 +43,9 @@ fn main() -> LRUResult<()> {
         ),
         Err(LRUError::InsufficientCapacity),
     ));
+
+    // On too large file, cache will be flushed by accident.
+    assert!(cache.as_ref().iter().count() == 0);
 
     Ok(())
 }
