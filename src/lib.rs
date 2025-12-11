@@ -13,7 +13,8 @@ pub use error::LRUError;
 use utils::remove_file_get_size;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FileInfo {
+pub struct FileInfo<K> {
+    pub key: K,
     pub file_path: PathBuf,
     pub file_size: u64,
 }
@@ -43,6 +44,13 @@ where
         Ok(self.inner.get(key)?)
     }
 
+    /// Try access by an existing key, without touching LRU order
+    ///
+    /// If not found, returns `None`.
+    pub fn peek(&mut self, key: &K) -> LRUResult<Option<V>> {
+        Ok(self.inner.peek(key)?)
+    }
+
     /// Return `Some(V)` if a value was replaced.
     pub fn insert(&mut self, key: &K, value: &V) -> LRUResult<Option<V>> {
         Ok(self.inner.insert(key, value)?)
@@ -56,22 +64,21 @@ where
         Ok(self.inner.pop_lru()?)
     }
 
+    /// most_recently_used family functions all does no effect on LRU order
     pub fn most_recently_used(&self) -> LRUResult<Option<K>> {
         Ok(self.inner.mru()?)
     }
     pub fn most_recently_used_value(&mut self) -> LRUResult<Option<V>> {
-        let Some(mru) = self.most_recently_used()? else {
-            return Ok(None);
-        };
-        Ok(self.inner.get(&mru)?)
+        Ok(self.inner.peek_mru()?)
     }
     pub fn most_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
         let Some(mru_key) = self.most_recently_used()? else {
             return Ok(None);
         };
-        Ok(self.inner.get_key_value(&mru_key)?)
+        Ok(self.inner.peek_key_value(&mru_key)?)
     }
 
+    /// least_recently_used family functions all does no effect on LRU order
     pub fn least_recently_used(&self) -> LRUResult<Option<K>> {
         match self.inner.lru() {
             Ok(v) => Ok(v),
@@ -80,13 +87,13 @@ where
         }
     }
     pub fn least_recently_used_value(&mut self) -> LRUResult<Option<V>> {
-        Ok(self.inner.get_lru()?)
+        Ok(self.inner.peek_lru()?)
     }
     pub fn least_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
         let Some(lru_key) = self.least_recently_used()? else {
             return Ok(None);
         };
-        Ok(self.inner.get_key_value(&lru_key)?)
+        Ok(self.inner.peek_key_value(&lru_key)?)
     }
 }
 
@@ -148,7 +155,7 @@ where
         key: &K,
         path: &PathBuf,
         mut exceed_size: isize,
-    ) -> LRUResult<Vec<FileInfo>> {
+    ) -> LRUResult<Vec<FileInfo<K>>> {
         let mut old_value = None;
 
         // try to remove old file, on confliction
@@ -170,6 +177,7 @@ where
                 self.pop(&lru_key)?;
                 exceed_size -= file_size as isize;
                 removed_files.push(FileInfo {
+                    key: lru_key,
                     file_path,
                     file_size,
                 });

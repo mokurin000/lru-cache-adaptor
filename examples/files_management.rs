@@ -4,6 +4,7 @@ use std::{
 };
 
 use lru_cache_adaptor::{FileInfo, LRUError, LRUResult, LruCache};
+use serde::{Serialize, de::DeserializeOwned};
 
 fn main() -> LRUResult<()> {
     let mut cache = LruCache::new(disklru::Store::open_temporary(1024)?);
@@ -19,9 +20,13 @@ fn main() -> LRUResult<()> {
 
         // file_path not needed here, as insert_new_file
         // handles rotation inside LRU cache.
-        for FileInfo { file_size, .. } in
-            place_file(&mut cache, &path, size as _, size - (total_capacity - used))?
-        {
+        for FileInfo { file_size, .. } in place_file(
+            &mut cache,
+            &i,
+            &path,
+            size as _,
+            size - (total_capacity - used),
+        )? {
             used -= file_size as isize;
         }
         used += size;
@@ -31,12 +36,12 @@ fn main() -> LRUResult<()> {
 
     let size = total_capacity + 1;
     let exceeded = size - (total_capacity - used);
-    println!("size: {size} B, exceed: {exceeded} B");
 
     // Do NOT try to insert too large file.
     assert!(matches!(
         place_file(
             &mut cache,
+            &file_sizes.len(),
             format!("temp_{}", file_sizes.len()),
             size as _,
             exceeded,
@@ -50,18 +55,22 @@ fn main() -> LRUResult<()> {
     Ok(())
 }
 
-fn place_file(
-    cache: &mut LruCache<PathBuf, PathBuf>,
+fn place_file<K>(
+    cache: &mut LruCache<K, PathBuf>,
+    key: &K,
     path: impl AsRef<Path>,
     size: u64,
     exceed: isize,
-) -> LRUResult<Vec<FileInfo>> {
+) -> LRUResult<Vec<FileInfo<K>>>
+where
+    K: Serialize + DeserializeOwned + Eq + std::fmt::Debug,
+{
     let path = path.as_ref().to_path_buf();
 
     let file = OpenOptions::new().create(true).write(true).open(&path)?;
     file.set_len(size)?;
 
-    let removed_files = cache.insert_new_file(&path, &path, exceed)?;
+    let removed_files = cache.insert_new_file(key, &path, exceed)?;
     if !removed_files.is_empty() {
         println!("removed: {removed_files:#?}");
     }
