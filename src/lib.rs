@@ -12,6 +12,12 @@ pub type LRUResult<K> = std::result::Result<K, LRUError>;
 pub use error::LRUError;
 use utils::remove_file_get_size;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FileInfo {
+    pub file_path: PathBuf,
+    pub file_size: u64,
+}
+
 #[derive(Debug)]
 pub struct LruCache<K, V>
 where
@@ -42,6 +48,14 @@ where
         Ok(self.inner.insert(key, value)?)
     }
 
+    pub fn pop(&mut self, key: &K) -> LRUResult<Option<(K, V)>> {
+        Ok(self.inner.pop(key)?)
+    }
+
+    pub fn pop_least_recently_used(&mut self) -> LRUResult<Option<(K, V)>> {
+        Ok(self.inner.pop_lru()?)
+    }
+
     pub fn most_recently_used(&self) -> LRUResult<Option<K>> {
         Ok(self.inner.mru()?)
     }
@@ -51,12 +65,28 @@ where
         };
         Ok(self.inner.get(&mru)?)
     }
+    pub fn most_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
+        let Some(mru_key) = self.most_recently_used()? else {
+            return Ok(None);
+        };
+        Ok(self.inner.get_key_value(&mru_key)?)
+    }
 
     pub fn least_recently_used(&self) -> LRUResult<Option<K>> {
-        Ok(self.inner.lru()?)
+        match self.inner.lru() {
+            Ok(v) => Ok(v),
+            Err(disklru::Error::ReportBug(_)) => Ok(None),
+            Err(e) => Err(e)?,
+        }
     }
     pub fn least_recently_used_value(&mut self) -> LRUResult<Option<V>> {
         Ok(self.inner.get_lru()?)
+    }
+    pub fn least_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
+        let Some(lru_key) = self.least_recently_used()? else {
+            return Ok(None);
+        };
+        Ok(self.inner.get_key_value(&lru_key)?)
     }
 }
 
@@ -71,6 +101,8 @@ where
     /// While `disklru` was built upon `sled`, which utilizes [LSM-Tree like data structure][0],
     /// to reduce random seeking, write amplification will be huge.
     ///
+    /// This **does not** pop the key-value pair out.
+    ///
     /// [0]: https://github.com/spacejam/sled?tab=readme-ov-file#performance
     pub fn remove_lru_file(&mut self) -> LRUResult<Option<u64>> {
         let Some(file) = self.least_recently_used_value()? else {
@@ -81,7 +113,7 @@ where
 
     /// Similar to [`remove_lru_file`](Self::remove_lru_file), but with custom key.
     ///
-    /// Note: both functions **does not** pop the key-value pair out.
+    /// This **does not** pop the key-value pair out.
     pub fn remove_file(&mut self, key: &K) -> LRUResult<Option<u64>> {
         let Some(file) = self.access(key)? else {
             return Ok(None);
@@ -90,7 +122,7 @@ where
         remove_file_get_size(file)
     }
 
-    /// Remove old file pointed by `key` if existing,
+    /// Remove old file pointed by `key` if existing, possibly removing some files.
     ///
     /// - `exceed_size`: exceeded size to place the new image, in bytes.
     ///
@@ -116,7 +148,7 @@ where
         key: &K,
         path: &PathBuf,
         mut exceed_size: isize,
-    ) -> LRUResult<Option<PathBuf>> {
+    ) -> LRUResult<Vec<FileInfo>> {
         let mut old_value = None;
 
         // try to remove old file, on confliction
@@ -127,16 +159,26 @@ where
             old_value = Some(file);
         }
 
+        let mut removed_files = Vec::new();
+
         while exceed_size >= 0 {
-            if self.least_recently_used()?.is_none() {
+            let Some((lru_key, file_path)) = self.least_recently_used_pair()? else {
                 return Err(LRUError::InsufficientCapacity);
-            }
-            if let Some(file_sz) = self.remove_lru_file()? {
-                exceed_size -= file_sz as isize;
+            };
+
+            if let Ok(Some(file_size)) = remove_file_get_size(&file_path) {
+                self.pop(&lru_key)?;
+                exceed_size -= file_size as isize;
+                removed_files.push(FileInfo {
+                    file_path,
+                    file_size,
+                });
             }
         }
 
-        self.insert(key, &path)
+        self.insert(key, &path)?;
+
+        Ok(removed_files)
     }
 }
 
