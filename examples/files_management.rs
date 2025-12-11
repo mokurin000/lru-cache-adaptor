@@ -32,7 +32,19 @@ fn main() -> LRUResult<()> {
         used += size;
 
         println!("after inserting {path} ({size} B), used {used} of {total_capacity} bytes");
+        println!(
+            "lru content: {:?}",
+            cache.as_ref().iter().flatten().collect::<Vec<_>>()
+        );
     }
+
+    if cache.as_ref().len() >= 2 {
+        cache.access(&cache.least_recently_used()?.unwrap())?;
+    }
+    println!(
+        "lru content after access: {:?}",
+        cache.as_ref().iter().flatten().collect::<Vec<_>>()
+    );
 
     let size = total_capacity + 1;
     let exceeded = size - (total_capacity - used);

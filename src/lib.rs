@@ -47,7 +47,7 @@ where
     /// Try access by an existing key, without touching LRU order
     ///
     /// If not found, returns `None`.
-    pub fn peek(&mut self, key: &K) -> LRUResult<Option<V>> {
+    pub fn peek(&self, key: &K) -> LRUResult<Option<V>> {
         Ok(self.inner.peek(key)?)
     }
 
@@ -68,10 +68,10 @@ where
     pub fn most_recently_used(&self) -> LRUResult<Option<K>> {
         Ok(self.inner.mru()?)
     }
-    pub fn most_recently_used_value(&mut self) -> LRUResult<Option<V>> {
+    pub fn most_recently_used_value(&self) -> LRUResult<Option<V>> {
         Ok(self.inner.peek_mru()?)
     }
-    pub fn most_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
+    pub fn most_recently_used_pair(&self) -> LRUResult<Option<(K, V)>> {
         let Some(mru_key) = self.most_recently_used()? else {
             return Ok(None);
         };
@@ -86,10 +86,10 @@ where
             Err(e) => Err(e)?,
         }
     }
-    pub fn least_recently_used_value(&mut self) -> LRUResult<Option<V>> {
+    pub fn least_recently_used_value(&self) -> LRUResult<Option<V>> {
         Ok(self.inner.peek_lru()?)
     }
-    pub fn least_recently_used_pair(&mut self) -> LRUResult<Option<(K, V)>> {
+    pub fn least_recently_used_pair(&self) -> LRUResult<Option<(K, V)>> {
         let Some(lru_key) = self.least_recently_used()? else {
             return Ok(None);
         };
@@ -205,6 +205,9 @@ where
     K: Serialize + DeserializeOwned + Eq,
     V: Serialize + DeserializeOwned,
 {
+    /// After calling `as_mut`, you may call `&mut self` [Store] methods
+    ///
+    /// always check if status update is wanted.
     fn as_mut(&mut self) -> &mut Store<K, V> {
         &mut self.inner
     }
