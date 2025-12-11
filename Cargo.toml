@@ -2,6 +2,8 @@
 name = "lru-cache-adaptor"
 version = "0.1.0"
 edition = "2024"
+authors = ["mokurin000 <mokurin000@gmail.com>"]
+license = "MIT"
 
 [dependencies]
 disklru = "0.3.3"
