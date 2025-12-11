@@ -15,6 +15,8 @@ fn main() -> LRUResult<()> {
     let total_capacity = 2048_isize;
     let mut used = 0_isize;
 
+    println!("initialized cache, capacity: {total_capacity} bytes");
+
     assert!(file_sizes.iter().all(|size| size <= &total_capacity));
 
     for (i, &size) in file_sizes.iter().enumerate() {
@@ -85,7 +87,7 @@ where
 {
     let path = path.as_ref().to_path_buf();
 
-    let removed_files = cache.insert_new_file(key, &path, exceed)?;
+    let (removed_files, _old_value) = cache.insert_new_file(key, &path, exceed)?;
     if !removed_files.is_empty() {
         println!("removed: {removed_files:#?}");
     }

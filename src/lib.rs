@@ -155,7 +155,7 @@ where
         key: &K,
         path: &PathBuf,
         mut exceed_size: isize,
-    ) -> LRUResult<Vec<FileInfo<K>>> {
+    ) -> LRUResult<(Vec<FileInfo<K>>, Option<PathBuf>)> {
         let mut old_value = None;
 
         // try to remove old file, on confliction
@@ -166,6 +166,17 @@ where
             old_value = Some(file);
         }
 
+        let removed_files = self.retain_size(exceed_size)?;
+
+        self.insert(key, &path)?;
+        Ok((removed_files, old_value))
+    }
+
+    /// retain at least `exceed_size` bytes.
+    ///
+    /// If the exceeded size cannot be retained by removing all files,
+    /// this returns a [`LRUError::InsufficientCapacity`] instead.
+    pub fn retain_size(&mut self, mut exceed_size: isize) -> LRUResult<Vec<FileInfo<K>>> {
         let mut removed_files = Vec::new();
 
         while exceed_size > 0 {
@@ -183,8 +194,6 @@ where
                 });
             }
         }
-
-        self.insert(key, &path)?;
 
         Ok(removed_files)
     }
