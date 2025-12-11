@@ -1,9 +1,11 @@
 [package]
 name = "lru-cache-adaptor"
+description = "Thin wrapper around disklru for filesystem integration."
 version = "0.1.0"
 edition = "2024"
 authors = ["mokurin000 <mokurin000@gmail.com>"]
 license = "MIT"
+repository = "https://github.com/mokurin000/lru-cache-adaptor/"
 
 [dependencies]
 disklru = "0.3.3"
