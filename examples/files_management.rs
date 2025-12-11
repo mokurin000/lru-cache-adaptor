@@ -9,7 +9,9 @@ use serde::{Serialize, de::DeserializeOwned};
 fn main() -> LRUResult<()> {
     let mut cache = LruCache::new(disklru::Store::open_temporary(1024)?);
 
-    let file_sizes = [512, 512, 768, 512, 32, 1536, 256, 256, 32];
+    let file_sizes = [
+        512, 512, 768, 512, 32, 1536, 256, 256, 32, 512, 768, 512, 768, 1024,
+    ];
     let total_capacity = 2048_isize;
     let mut used = 0_isize;
 
@@ -83,13 +85,13 @@ where
 {
     let path = path.as_ref().to_path_buf();
 
-    let file = OpenOptions::new().create(true).write(true).open(&path)?;
-    file.set_len(size)?;
-
     let removed_files = cache.insert_new_file(key, &path, exceed)?;
     if !removed_files.is_empty() {
         println!("removed: {removed_files:#?}");
     }
+
+    let file = OpenOptions::new().create(true).write(true).open(&path)?;
+    file.set_len(size)?;
 
     Ok(removed_files)
 }
