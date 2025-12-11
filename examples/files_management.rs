@@ -10,7 +10,7 @@ fn main() -> LRUResult<()> {
     let mut cache = LruCache::new(disklru::Store::open_temporary(1024)?);
 
     let file_sizes = [
-        512, 512, 768, 512, 32, 1536, 256, 256, 32, 512, 768, 512, 768, 1024,
+        512, 512, 768, 512, 32, 1536, 256, 256, 32, 512, 768, 512, 768, 1024, 1024,
     ];
     let total_capacity = 2048_isize;
     let mut used = 0_isize;
@@ -19,25 +19,25 @@ fn main() -> LRUResult<()> {
 
     for (i, &size) in file_sizes.iter().enumerate() {
         let path = format!("temp_{i}");
+        let exceed = size - (total_capacity - used);
+
+        println!("inserting {path} ({size} B), exceed = {exceed} B");
 
         // file_path not needed here, as insert_new_file
         // handles rotation inside LRU cache.
-        for FileInfo { file_size, .. } in place_file(
-            &mut cache,
-            &i,
-            &path,
-            size as _,
-            size - (total_capacity - used),
-        )? {
+        for FileInfo { file_size, .. } in place_file(&mut cache, &i, path, size as _, exceed)? {
             used -= file_size as isize;
         }
         used += size;
 
-        println!("after inserting {path} ({size} B), used {used} of {total_capacity} bytes");
+        assert!(used <= total_capacity);
+
+        println!("used {used} of {total_capacity} bytes");
         println!(
             "lru content: {:?}",
             cache.as_ref().iter().flatten().collect::<Vec<_>>()
         );
+        println!();
     }
 
     if cache.as_ref().len() >= 2 {

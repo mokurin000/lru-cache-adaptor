@@ -168,7 +168,7 @@ where
 
         let mut removed_files = Vec::new();
 
-        while exceed_size >= 0 {
+        while exceed_size > 0 {
             let Some((lru_key, file_path)) = self.least_recently_used_pair()? else {
                 return Err(LRUError::InsufficientCapacity);
             };
