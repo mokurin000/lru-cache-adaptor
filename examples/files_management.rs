@@ -63,6 +63,10 @@ fn main() -> LRUResult<()> {
 
     // On too large file, cache will be flushed by accident.
     assert!(cache.as_ref().iter().count() == 0);
+    println!(
+        "lru content after bad insertion: {:?}",
+        cache.as_ref().iter().flatten().collect::<Vec<_>>()
+    );
 
     Ok(())
 }
